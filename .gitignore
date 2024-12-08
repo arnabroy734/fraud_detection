@@ -1,2 +1,3 @@
-notebooks/data_raw.csv
 notebooks/.ipynb_checkpoints
+*.csv
+*.pkl
