@@ -3,5 +3,8 @@ notebooks/autoencoder.ipynb
 notebooks/random_forest.ipynb
 notebooks/semisupervised_2.ipynb
 notebooks/unsupervised_clustering_iforest.ipynb
+gittoken.txt
+database/write.py
+*.db
 *.csv
 *.pkl

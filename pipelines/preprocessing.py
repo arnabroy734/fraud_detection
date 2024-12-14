@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 from paths.setup_path import  Paths
 import pickle
