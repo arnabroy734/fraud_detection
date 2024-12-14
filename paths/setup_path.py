@@ -8,14 +8,15 @@ class Paths:
         return path
     @classmethod
     def preprocessed(cls):
-        '''Get the filepath for preprocessed data'''
+        '''Get the filepath for preprocessed data for ML models'''
         path  = cls.basedir/'data'/'preprocessed_data'/'preprocessed.csv'
         return path
     @classmethod
     def standardscaler(cls):
-        '''Get file path for StandardScaler'''
+        '''Get file path for StandardScaler for ML'''
         path  = cls.basedir/'models'/'standardscaler.pkl'
         return path
+    
 
 if __name__ == "__main__":
     # Sample usage

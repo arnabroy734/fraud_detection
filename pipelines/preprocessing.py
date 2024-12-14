@@ -55,13 +55,14 @@ def process_datetime(data: pd.DataFrame) -> pd.DataFrame:
         else:
             raise e
      
-def encode(data: pd.DataFrame) -> pd.DataFrame:
+def encode(data: pd.DataFrame, filepath: str) -> pd.DataFrame:
     '''
     Encode 'merchant','street', 'category','city', 'job', 'zip', 'gender'.
     Encoding should be done as percentage of fraudulenlent transactions.
 
     Parameters:
         data (pandas Dataframe): input Dataframe
+        filepath(string): file name to save encoding
 
     Returns:
         data (pandas Dataframe): feature names will be same but values will be encoded.
@@ -93,7 +94,6 @@ def encode(data: pd.DataFrame) -> pd.DataFrame:
         for feature in columns:
             data[feature] = data[feature].map(replace)
         # save the encoding
-        filepath = Paths.encoder()
         with open(filepath, "wb") as file:
             pickle.dump(encoding, file)
             file.close()
@@ -108,13 +108,17 @@ def encode(data: pd.DataFrame) -> pd.DataFrame:
         else:
             raise e
 
-def standardize(data: pd.DataFrame):
+def standardize(data: pd.DataFrame, filepath: str) -> pd.DataFrame:
     '''
-    Apply standard scaler on the data, save the data in csv format and also serialise StandardScaler
+    Apply standard scaler on the data, serialise StandardScaler
     
     Parameters:
         data(pandas Dataframe): input Dataframe
+        filepath(string): file path for saving the serialised data
     
+    Saves:
+        The standard scaler in serialised format
+        
     Raises:
         OSError: in case some error occurs while saving 'scaler' 
     '''
@@ -126,12 +130,36 @@ def standardize(data: pd.DataFrame):
         X_processed = scaler.fit_transform(X)
         data_processed = pd.DataFrame(data=X_processed, columns=X_columns)
         data_processed['is_fraud'] = y.values
-        # save the data
-        data_processed.to_csv(Paths.preprocessed())
         # serialise the Scaler
-        with open(Paths.standardscaler(), "wb") as file:
+        with open(filepath, "wb") as file:
             pickle.dump(scaler, file)
             file.close()
+        return data_processed
+    except Exception as e:
+        if isinstance(e, OSError):
+            raise OSError(e)
+        else:
+            raise e
+
+def pipeline_preprocessing(data: pd.DataFrame):
+    '''
+    Pipeline for ML Models: drop_columns, preprocess datetime, encode, standardize.
+
+    Paramaters:
+        data(pd.DataFrame): input dataframe
+    
+    Saves:
+        preprocessed data in specific location
+    
+    Raises:
+        OSError: in case some error occurs during IO operation
+    '''
+    try:
+        data = drop_columns(data)
+        data = process_datetime(data)
+        data = encode(data, Paths.encoder())
+        data = standardize(data, Paths.standardscaler())
+        data.to_csv(Paths.preprocessed())
     except Exception as e:
         if isinstance(e, OSError):
             raise OSError(e)
