@@ -1,18 +1,21 @@
 from database.repository import SourceSqliteAdaptor
 from paths.setup_path import Paths
 import pandas as pd
+from zenml import step, pipeline
 
-def ingest_data():
-    """Ingest data from SourceDB and dump in predefined folder as csv file"""
+@step(enable_cache=False)
+def ingest_data()-> pd.DataFrame:
+    """Ingest data from SourceDB and return as pandas dataframe"""
     try:
         source_db_adapter = SourceSqliteAdaptor()
         source_db_adapter.connect()
         data = source_db_adapter.fetch_all()
-        data.to_csv(Paths.ingested())
+        return data
     except Exception as e:
-        raise Exception(f"Data ingestion failed: {e}")
+        raise Exception(f"Data loading from sourceDB failed: {e}")
 
-def validate_ingested_data() -> bool:
+@step(enable_cache=False)
+def validate_ingested_data(data: pd.DataFrame) -> bool:
     """
     Validate the columns names of the ingested data
 
@@ -24,10 +27,23 @@ def validate_ingested_data() -> bool:
        'long', 'city_pop', 'job', 'dob', 'trans_num', 'unix_time', 'merch_lat',
        'merch_long', 'is_fraud']
     try:
-        data = pd.read_csv(Paths.ingested(), index_col=0)
         for feature in data.columns:
             if feature not in columns:
                 return False
         return True
     except Exception as e:
-        raise Exception(f"Data ingestion failed: {e}")
+        raise Exception(f"Data validation failed: {e}")
+
+@step
+def save_data(data: pd.DataFrame, validation: bool):
+    if validation:
+        data.to_csv(Paths.ingested())
+
+@pipeline
+def pipeline_ingest_validate():
+    try:
+        data = ingest_data()
+        validation = validate_ingested_data(data)
+        save_data(data, validation)
+    except Exception as e:
+        print(f"Data ingestion pipeline error: {e}")

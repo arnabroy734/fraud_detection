@@ -2,7 +2,21 @@ import pandas as pd
 from paths.setup_path import  Paths
 import pickle
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from zenml import step, pipeline
+from typing_extensions import Annotated
+from typing import Tuple
 
+@step(enable_cache=False)
+def load_ingested_data()-> Annotated[pd.DataFrame, "ingested_data"]:
+    """Load ingested data and returns as DataFrame"""
+    try:
+        data = pd.read_csv(Paths.ingested(), index_col=0)
+        return data
+    except OSError as e:
+        print(f"Error loading ingested data: {e}")
+
+@step(enable_cache=False)
 def drop_columns(data: pd.DataFrame) -> pd.DataFrame:
     '''
     Drop columns 'first', 'last', 'trans_num', 'state', 'cc_num', 'lat', 'long', 'unix_time'.
@@ -26,6 +40,7 @@ def drop_columns(data: pd.DataFrame) -> pd.DataFrame:
         else:
             raise e
 
+@step(enable_cache=False)
 def process_datetime(data: pd.DataFrame) -> pd.DataFrame:
     '''
     Threre are two datetime features in this dataset - 'trans_date_trans_time' and 'dob'.
@@ -53,8 +68,24 @@ def process_datetime(data: pd.DataFrame) -> pd.DataFrame:
             raise KeyError(f"Column name mismatch: {e}")
         else:
             raise e
-     
-def encode(data: pd.DataFrame, filepath: str) -> pd.DataFrame:
+
+@step(enable_cache=False)
+def split(data: pd.DataFrame) -> Tuple[Annotated[pd.DataFrame, "train"], Annotated[pd.DataFrame, "test"]]:
+    """
+    Split the entire dataset in train and test in stratified manner
+
+    Parameters:
+        data(pd.DataFrame): train data
+    
+    Returns:
+        train(pd.DataFrame): train data
+        test(pd.DataFrame): test data
+    """
+    train, test = train_test_split(data, test_size=0.3, random_state=100, stratify=data['is_fraud'])
+    return (train, test)
+
+@step(enable_cache=False)
+def encode(data: pd.DataFrame) -> Tuple[Annotated[pd.DataFrame, "train_encoded"], Annotated[dict, "encoding"]]:
     '''
     Encode 'merchant','street', 'category','city', 'job', 'zip', 'gender'.
     Encoding should be done as percentage of fraudulenlent transactions.
@@ -92,22 +123,53 @@ def encode(data: pd.DataFrame, filepath: str) -> pd.DataFrame:
                 return 0.1
         for feature in columns:
             data[feature] = data[feature].map(replace)
-        # save the encoding
-        with open(filepath, "wb") as file:
-            pickle.dump(encoding, file)
-            file.close()
-
-        return data
+        
+        return (data, encoding)
         
     except Exception as e:
-        if isinstance(e, OSError):
-            raise OSError(e)
-        elif isinstance(e, KeyError):
+        if isinstance(e, KeyError):
             raise KeyError(e)
         else:
             raise e
 
-def standardize(data: pd.DataFrame, filepath: str) -> pd.DataFrame:
+@step(enable_cache=False)
+def decode(data: pd.DataFrame, encoding: dict) -> Annotated[pd.DataFrame, "test_encoded"]:
+    """
+    Decode test data using encoding generated from train data
+
+    Parameters:
+        data(pd.DataFrame): test data
+        encoding(dict): encoding dictionary from train data
+    
+    Returns:
+        data(pd.DataFrame): encoded data 
+    """
+    columns = ['merchant','street', 'category','city', 'job', 'zip', 'gender']
+    # Create the mapping function 
+    def replace(key):
+        try:
+            return encoding[key]
+        except Exception as e:
+            # if some new key comes then by default 0.1% chance of fraud 
+            return 0.1
+    for feature in columns:
+        data[feature] = data[feature].map(replace)
+    return data
+
+@step(enable_cache=False)
+def save_encoder(encoding: dict)-> Annotated[bool, "encoder_saved"]:
+    # save the encoding
+    try:
+        with open(Paths.encoder(), "wb") as file:
+            pickle.dump(encoding, file)
+            file.close()
+        return True
+    except OSError as e:
+        raise OSError(f"Error in saving encoding: {e}")
+
+@step(enable_cache=False)
+def standardize_train(data: pd.DataFrame) -> Tuple[Annotated[pd.DataFrame,"train_standardized"], 
+                                                   Annotated[StandardScaler,"standardscaler"]]:
     '''
     Apply standard scaler on the data, serialise StandardScaler
     
@@ -115,55 +177,80 @@ def standardize(data: pd.DataFrame, filepath: str) -> pd.DataFrame:
         data(pandas Dataframe): input Dataframe
         filepath(string): file path for saving the serialised data
     
-    Saves:
-        The standard scaler in serialised format
-        
-    Raises:
-        OSError: in case some error occurs while saving 'scaler' 
+    Returns:
+        data: standardized data
+        scaler: sklearn StandardScaler model
     '''
     y = data['is_fraud']
     X = data.drop(columns=['is_fraud'], inplace=False )
     X_columns = X.columns
+
+    scaler = StandardScaler()
+    X_processed = scaler.fit_transform(X)
+    data_processed = pd.DataFrame(data=X_processed, columns=X_columns)
+    data_processed['is_fraud'] = y.values
+
+    return (data_processed, scaler)
+
+@step(enable_cache=False)
+def standardize_test(data: pd.DataFrame, scaler: StandardScaler) -> Annotated[pd.DataFrame, "test_standardized"]:
+    """
+    Apply standardscaler on test data
+
+    Parameters:
+        data(pd.DataFrame): test data
+        scaler: StandardScaler learned on train data
+    
+    Returns:
+        data(pd.Dataframe): standardized test data
+    """
+    y = data['is_fraud']
+    X = data.drop(columns=['is_fraud'], inplace=False )
+    X_columns = X.columns
+
+    X_processed = scaler.transform(X)
+    data_processed = pd.DataFrame(data=X_processed, columns=X_columns)
+    data_processed['is_fraud'] = y.values
+    return data_processed
+
+@step(enable_cache=False)
+def save_standardscaler(scaler: StandardScaler) -> Annotated[bool,"standardscaler_saved"]:
     try:
-        scaler = StandardScaler()
-        X_processed = scaler.fit_transform(X)
-        data_processed = pd.DataFrame(data=X_processed, columns=X_columns)
-        data_processed['is_fraud'] = y.values
-        # serialise the Scaler
-        with open(filepath, "wb") as file:
+        with open(Paths.standardscaler(), "wb") as file:
             pickle.dump(scaler, file)
             file.close()
-        return data_processed
-    except Exception as e:
-        if isinstance(e, OSError):
-            raise OSError(e)
-        else:
-            raise e
+        return True
+    except OSError as e:
+        raise OSError(f"Error in saving standardscaler: {e}")
 
-def pipeline_preprocessing(data: pd.DataFrame):
+@step(enable_cache=False)
+def save_train_test(train: pd.DataFrame, test: pd.DataFrame) -> Annotated[bool, "preprocessed_data_saved"]:
+    try:
+        train.to_csv(Paths.preprocessed_train())
+        test.to_csv(Paths.preprocessed_test())
+        return True
+    except OSError as e:
+        raise OSError(f"Error saving preprocessed data: {e}")
+
+@pipeline
+def pipeline_preprocessing():
     '''
-    Pipeline for ML Models: drop_columns, preprocess datetime, encode, standardize.
-
-    Paramaters:
-        data(pd.DataFrame): input dataframe
-    
-    Saves:
-        preprocessed data in specific location
-    
-    Raises:
-        OSError: in case some error occurs during IO operation
+    Pipeline for ML Models
     '''
     try:
+        data = load_ingested_data()
         data = drop_columns(data)
         data = process_datetime(data)
-        data = encode(data, Paths.encoder())
-        data = standardize(data, Paths.standardscaler())
-        data.to_csv(Paths.preprocessed())
+        train, test = split(data)
+        train, encoding = encode(train)
+        test = decode(test, encoding)
+        save_encoder(encoding)
+        train, scaler = standardize_train(train)
+        test = standardize_test(test, scaler)
+        save_standardscaler(scaler)
+        save_train_test(train, test)
     except Exception as e:
-        if isinstance(e, OSError):
-            raise OSError(e)
-        else:
-            raise e
+        print(f"Error in preprocessing pipeline: {e}")
 
 
 if __name__ == "__main__":

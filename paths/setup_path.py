@@ -12,9 +12,14 @@ class Paths:
         path  = cls.basedir/'data'/'ingested_data'/'ingested.csv'
         return path
     @classmethod
-    def preprocessed(cls):
-        '''Get the filepath for preprocessed data for ML models'''
-        path  = cls.basedir/'data'/'preprocessed_data'/'preprocessed.csv'
+    def preprocessed_train(cls):
+        '''Get the filepath for preprocessed training data for ML models'''
+        path  = cls.basedir/'data'/'preprocessed_data'/'preprocessed_train.csv'
+        return path
+    @classmethod
+    def preprocessed_test(cls):
+        '''Get the filepath for preprocessed test data'''
+        path  = cls.basedir/'data'/'preprocessed_data'/'preprocessed_test.csv'
         return path
     @classmethod
     def standardscaler(cls):
