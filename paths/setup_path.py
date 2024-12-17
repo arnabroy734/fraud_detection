@@ -32,6 +32,26 @@ class Paths:
         '''Get path local source db '''
         path  = cls.basedir/'database'/'source.db'
         return path
+    @classmethod
+    def model_training_logs(cls):
+        '''Get path model logs '''
+        path  = cls.basedir/'log'/'model_logs.txt'
+        return path
+    @classmethod
+    def model_deployment_logs(cls):
+        '''Get path for model deployment logs '''
+        path  = cls.basedir/'log'/'model_deployment_logs.txt'
+        return path
+    @classmethod
+    def model(cls, name, id):
+        '''Get path for saved model '''
+        path  = cls.basedir/'model_registry'/f'{name}_model_{id}.pkl'
+        return path
+    @classmethod
+    def production_model(cls):
+        '''Get path for model for deployement '''
+        path  = cls.basedir/'models'/'production_model.pkl'
+        return path
     
 
 if __name__ == "__main__":

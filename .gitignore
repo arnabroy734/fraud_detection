@@ -8,3 +8,5 @@ database/write.py
 *.db
 *.csv
 *.pkl
+app.py
+streams/
