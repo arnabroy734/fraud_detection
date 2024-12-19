@@ -1,0 +1,6 @@
+2024-12-19 19:21:34  step=Consumer  [<FrameSummary file /media/arnab/MISC/IISC 2024 Projects/fraud_detection/consumer.py, line 37 in <module>>] 
+2024-12-19 19:23:38  step=Consumer  [<FrameSummary file /media/arnab/MISC/IISC 2024 Projects/fraud_detection/consumer.py, line 41 in <module>>] 
+2024-12-19 19:25:11  step=Consumer  [<FrameSummary file /media/arnab/MISC/IISC 2024 Projects/fraud_detection/consumer.py, line 41 in <module>>] 
+2024-12-19 19:28:48  step=Consumer  KafkaError{code=_TRANSPORT,val=-195,str="Failed to get metadata: Local: Broker transport failure"} 
+2024-12-19 19:31:18  step=Consumer  Error 111 connecting to localhost:6379. Connection refused. 
+2024-12-19 19:32:23  step=Consumer  <class 'redis.exceptions.ConnectionError'>: Error 111 connecting to localhost:6379. Connection refused. 

@@ -4,6 +4,8 @@ import torch.nn as nn
 from models.model_architecture import FraudClassifier
 from imblearn.over_sampling import SMOTE
 import numpy as np
+from torch.optim.lr_scheduler import StepLR
+from time import time
 
 class ScoringNet(nn.Module):
     def __init__(self, input_size):
@@ -11,7 +13,7 @@ class ScoringNet(nn.Module):
         super(ScoringNet, self).__init__()
         self.l1 = nn.Linear(input_size,64) # 64 units
         self.l1_ac = nn.ReLU()
-        self.l2 = nn.Linear(64, 32) # 32 Units
+        self.l2 = nn.Linear(64 , 32) # 32 Units
         self.l2_ac = nn.ReLU()
         self.l3 = nn.Linear(32, 16) # 16 Units
         self.l3_ac = nn.ReLU()
@@ -62,6 +64,7 @@ class CustomDataset(Dataset):
 class FraudClassifierDEV(FraudClassifier):
     def __init__(self):
         self.name = "DEV"
+        self.id = int(time())
         self.model = None
         self.recall = None # score on test data
         self.precision = None
@@ -70,16 +73,18 @@ class FraudClassifierDEV(FraudClassifier):
     
     def train(self,X_train,y_train):
         sm = SMOTE(random_state=100)
-        X_train_os, y_train_os = sm.fit_resample(X_train, y_train)
+        # X_train_os, y_train_os = sm.fit_resample(X_train, y_train)
+        X_train_os, y_train_os = X_train, y_train
         device_gpu = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        batch_size = 1000
+        batch_size = 256
         input_size = X_train_os.shape[1]
-        lr = 0.005
+        lr = 0.003
         model = ScoringNet(input_size)
         model.to(device_gpu)
         loss_fn = DeviationLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr = lr)
-        epochs = 2
+        # scheduler = StepLR(optimizer, 30, 0.1)
+        epochs = 200
         dataset = CustomDataset(X_train_os, y_train_os)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         total_steps = len(dataloader)
@@ -95,8 +100,10 @@ class FraudClassifierDEV(FraudClassifier):
                 loss.backward()
                 optimizer.step()
 
-                if (j+1)%100 == 0:
+                if (j+1)%10 == 0:
                     print(f"At epoch {i+1}, step {j+1}/{total_steps}, deviation loss = {loss.item():0.5f}")
+            # scheduler.step()
+            
         self.model = model.to('cpu')
     
     @torch.no_grad()

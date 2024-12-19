@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask-SocketIO Example</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+    <style>
+        body {
+            width: 80%;
+            margin: auto;
+        }
+        h1{
+            align-self: auto;
+            margin: auto;
+        }
+        /* div {
+            display: inline-block;
+            height: 150px;
+            overflow: auto
+        } */
+
+        table th {
+            position: -webkit-sticky;
+            position: sticky;
+            top: 0;
+        }
+
+
+        /* == Just general styling, not relevant :) == */
+
+        table {
+            width: 100%;
+            margin: auto;
+            margin-top: 50px;
+            border-collapse: collapse;
+        }
+
+        th {
+            background-color: #1976D2;
+            color: #fff;
+        }
+
+        th,
+        td {
+            padding: 1em .5em;
+        }
+
+        /* table tr {
+            color: #212121;
+        } */
+
+        /* table tr:nth-child(odd) {
+            background-color: #BBDEFB;
+        } */
+        .highlight {
+            background-color: red;
+            color: yellow;
+            font-weight: bolder;
+        }
+    </style>
+
+    <script>
+        // Function to populate the table
+        function populateTable(transaction) {
+
+            const tableBody = document.getElementById("transactionTable").querySelector("tbody");
+            // tableBody.innerHTML = ""; // Clear existing rows
+
+            // data.forEach(transaction => {
+            const row = document.createElement("tr");
+
+            // Highlight row if the status is "Fraud"
+            if (transaction.Predcition === "1") {
+                row.classList.add("highlight");
+            }
+
+            row.innerHTML = `
+                        <td>${transaction.Name}</td>
+                        <td>${transaction.No}</td>
+                        <td>${transaction.Amount}</td>
+                        <td>${transaction.Card}</td>
+                        <td>${transaction.Predcition}</td>
+                        `;
+
+            tableBody.appendChild(row);
+            tableBody.insertBefore(row, tableBody.firstChild);
+            // });
+        }
+
+        var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port );
+
+        // document.addEventListener("DOMContentLoaded", (ev)=> {
+        //     // Connect to the SocketIO server
+        // })
+
+        socket.on('connect', function (data) {
+            console.log("Connected to server")
+        })
+
+        // Listen for server updates (sent every 2 seconds)
+        socket.on('prediction', function (data) {
+            result = data["data"];
+            result = JSON.parse(result);
+            transaction = {
+                Name: result["Name"][0], No: result["Transaction Number"][0],
+                Amount: result["Amount"][0], Card: result["Card No"][0], Predcition: result["Prediction"][0]
+            };
+            console.log(transaction)
+
+            populateTable(transaction);
+
+        });
+
+
+    </script>
+</head>
+
+<body>
+    <!-- <h1>Transaction Table</h1> -->
+    <table id="transactionTable">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Transaction Number</th>
+                <th>Amout</th>
+                <th>Card No</th>
+                <th>Prediction</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Rows will be dynamically inserted here -->
+        </tbody>
+    </table>
+</body>
+
+</html>

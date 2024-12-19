@@ -4,6 +4,7 @@ import torch.nn as nn
 from models.model_architecture import FraudClassifier
 from imblearn.over_sampling import SMOTE
 import numpy as np
+from time import time
 from models.ml_models import FraudClassifierRF
 
 class CustomDataset(Dataset):
@@ -40,6 +41,7 @@ class ANNClassifier(nn.Module):
 class FraudClassifierANN(FraudClassifier):
     def __init__(self):
         self.name = "ANN"
+        self.id = int(time())
         self.model = None
         self.recall = None # score on test data
         self.precision = None
@@ -50,14 +52,14 @@ class FraudClassifierANN(FraudClassifier):
         sm = SMOTE(random_state=100)
         X_train_os, y_train_os = sm.fit_resample(X_train, y_train)
         device_gpu = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        batch_size = 2000
+        batch_size = 2096
         input_size = X_train_os.shape[1]
         lr = 0.01
         model = ANNClassifier(input_size)
         model.to(device_gpu)
         loss_fn = nn.BCELoss()
-        optimizer = torch.optim.Adam(model.parameters(), lr = lr, weight_decay=10**(-3))
-        epochs = 2
+        optimizer = torch.optim.Adam(model.parameters(), lr = lr, weight_decay=10**(-4))
+        epochs = 10
         dataset = CustomDataset(X_train_os, y_train_os)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         total_steps = len(dataloader)
@@ -98,6 +100,7 @@ class FraudClassifierANN(FraudClassifier):
 class FraudClassifierMixed(FraudClassifier):
     def __init__(self, model1: FraudClassifierRF, model2: FraudClassifierANN, wt1: float, wt2: float):
         self.name = f"MIXED_{wt1}_{wt2}"
+        self.id = int(time())
         self.model1, self.model2 = model1, model2
         self.wt1, self.wt2 = wt1, wt2
         self.recall = None # score on test data

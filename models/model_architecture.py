@@ -38,5 +38,6 @@ class FraudClassifier(ABC):
         self.precision = float(precision)
         self.f1 = float(f1)
         self.accuracy = float(accuracy)
+        print(cm)
         return metrics
 

@@ -43,6 +43,28 @@ class Paths:
         path  = cls.basedir/'log'/'model_deployment_logs.txt'
         return path
     @classmethod
+    def pipeline_logs(cls):
+        '''Get path for logs of pipelines'''
+        path  = cls.basedir/'log'/'pipeline_logs.txt'
+        return path
+    @classmethod
+    def error_logs(cls):
+        '''Get path for error logs'''
+        path  = cls.basedir/'log'/'error_logs.txt'
+        return path
+    @classmethod
+    def description_rf(cls):
+        path  = cls.basedir/'log'/'rf_models.txt'
+        return path
+    @classmethod
+    def description_ann(cls):
+        path  = cls.basedir/'log'/'ann_models.txt'
+        return path
+    @classmethod
+    def description_devnet(cls):
+        path  = cls.basedir/'log'/'devnet_models.txt'
+        return path
+    @classmethod
     def model(cls, name, id):
         '''Get path for saved model '''
         path  = cls.basedir/'model_registry'/f'{name}_model_{id}.pkl'

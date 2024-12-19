@@ -16,3 +16,26 @@ def log_deployment(name: str, id: int):
         result = f"{now}  id={id}  model={name} \n"
         f.write(result)
         f.close()
+
+def log_pipelines(step: str, message: str):
+    with open(Paths.pipeline_logs(), "a") as f:
+        now = datetime.now()
+        now = now.strftime("%Y-%m-%d %H:%M:%S")
+        result = f"{now}  step={step}  {message} \n"
+        f.write(result)
+        f.close()
+
+def log_error(step: str, error: str):
+    with open(Paths.error_logs(), "a") as f:
+        now = datetime.now()
+        now = now.strftime("%Y-%m-%d %H:%M:%S")
+        result = f"{now}  step={step}  {error} \n"
+        f.write(result)
+        f.close()
+
+def log_model_description(path: str, message: str):
+    with open(path, "a") as f:
+        now = datetime.now()
+        now = now.strftime("%Y-%m-%d %H:%M:%S")
+        f.write(f"{now} {message}")
+        f.close()

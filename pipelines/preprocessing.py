@@ -6,68 +6,33 @@ from sklearn.model_selection import train_test_split
 from zenml import step, pipeline
 from typing_extensions import Annotated
 from typing import Tuple
+from log import logging
+from pipelines import utils
 
 @step(enable_cache=False)
 def load_ingested_data()-> Annotated[pd.DataFrame, "ingested_data"]:
     """Load ingested data and returns as DataFrame"""
     try:
         data = pd.read_csv(Paths.ingested(), index_col=0)
+        logging.log_pipelines(step="Preprocessing", message="Ingested data loaded successfully")
         return data
     except OSError as e:
-        print(f"Error loading ingested data: {e}")
+        error = f"Error loading ingested data: {e}"
+        logging.log_error(step="Preprocessing", error=error)
+        raise OSError(error)
 
 @step(enable_cache=False)
-def drop_columns(data: pd.DataFrame) -> pd.DataFrame:
-    '''
-    Drop columns 'first', 'last', 'trans_num', 'state', 'cc_num', 'lat', 'long', 'unix_time'.
-
-    Parameters:
-        data (pandas Dataframe):input Dataframe
-
-    Returns:
-        data (pandas Dataframe):the mentioned columns will be dropped from input dataframe
+def drop_columns(data: pd.DataFrame) -> Annotated[pd.DataFrame, "columns_dropped"]:
+    """Keep only valid columns and drop the remainings"""
+    columns = ['merchant','category','amt','gender','street',
+               'city','zip','city_pop','job','merch_lat','merch_long','hour','age', 'is_fraud']
+    data = data[columns]
+    logging.log_pipelines(step="Preprocessing", message="Columns successfully filtered")
+    return data
     
-    Raises:
-        KeyError: if one or more column names do not match
-    '''
-    columns = ['first', 'last', 'trans_num', 'state', 'cc_num', 'lat', 'long', 'unix_time']
-    try:
-        data.drop(columns=columns, inplace=True)
-        return data
-    except Exception as e:
-        if isinstance(e, KeyError):
-            raise KeyError(f"Column name mismatch: {e}")
-        else:
-            raise e
-
 @step(enable_cache=False)
-def process_datetime(data: pd.DataFrame) -> pd.DataFrame:
-    '''
-    Threre are two datetime features in this dataset - 'trans_date_trans_time' and 'dob'.
-    This function extarcts 'hour' from 'trans_date_trans_time' and calculates 'age' from 'dob'.
-    Then 'trans_date_trans_time' and 'dob' removed.
-
-    Parameters:
-        data (pandas Dataframe): input Dataframe
-    
-    Returns:
-        data (pandas Dataframe): features 'trans_date_trans_time', 'dob' removed and 'hour', 'age' added
-
-    Raises:
-        KeyError: if column name mismatch coours 
-    '''
-    try:
-        data['trans_date_trans_time'] = pd.to_datetime(data['trans_date_trans_time'])
-        data['dob'] = pd.to_datetime(data['dob'])
-        data['hour'] = data['trans_date_trans_time'].dt.hour
-        data['age'] = (data['trans_date_trans_time']- data['dob']).dt.days/365
-        data.drop(columns=['trans_date_trans_time','dob'], inplace=True)
-        return data
-    except Exception as e:
-        if isinstance(e, KeyError):
-            raise KeyError(f"Column name mismatch: {e}")
-        else:
-            raise e
+def process_datetime(data: pd.DataFrame) -> Annotated[pd.DataFrame, "features_hour_age_added"]:
+    return utils.process_datetime(data)
 
 @step(enable_cache=False)
 def split(data: pd.DataFrame) -> Tuple[Annotated[pd.DataFrame, "train"], Annotated[pd.DataFrame, "test"]]:
@@ -81,11 +46,12 @@ def split(data: pd.DataFrame) -> Tuple[Annotated[pd.DataFrame, "train"], Annotat
         train(pd.DataFrame): train data
         test(pd.DataFrame): test data
     """
-    train, test = train_test_split(data, test_size=0.3, random_state=100, stratify=data['is_fraud'])
+    train, test = train_test_split(data, test_size=0.3, random_state=42, stratify=data['is_fraud'])
+    logging.log_pipelines(step="Preprocessing", message="train-test split successful")
     return (train, test)
 
 @step(enable_cache=False)
-def encode(data: pd.DataFrame) -> Tuple[Annotated[pd.DataFrame, "train_encoded"], Annotated[dict, "encoding"]]:
+def generate_encoding(data: pd.DataFrame) -> Tuple[Annotated[pd.DataFrame, "train_encoded"], Annotated[dict, "encoding"]]:
     '''
     Encode 'merchant','street', 'category','city', 'job', 'zip', 'gender'.
     Encoding should be done as percentage of fraudulenlent transactions.
@@ -96,65 +62,30 @@ def encode(data: pd.DataFrame) -> Tuple[Annotated[pd.DataFrame, "train_encoded"]
 
     Returns:
         data (pandas Dataframe): feature names will be same but values will be encoded.
-    
-    Saves:
-        The pickle version of the encodings for future use in predefined path
-    
-    Raises:
-        KeyError: if there is mismatch in columns names
-        OSError: if there is some expection in writing the files
+        encoding (dict): encoding for all categories as key, value pair
     '''
-    try:
-        columns = ['merchant','street', 'category','city', 'job', 'zip', 'gender']
-        encoding = dict()
-        # Create encoding dictionary
-        for feature in columns:
-            fraud_counts = data[data['is_fraud']==1][feature].value_counts()
-            fradulent_cat = list(fraud_counts.index)
-            transaction_counts = data[data[feature].isin(fradulent_cat)][feature].value_counts()
-            fraud_percent = (fraud_counts/transaction_counts)*100
-            encoding.update(fraud_percent.to_dict())
-        # Create the mapping function 
-        def replace(key):
-            try:
-                return encoding[key]
-            except Exception as e:
-                # if some new key comes then by default 0.1% chance of fraud 
-                return 0.1
-        for feature in columns:
-            data[feature] = data[feature].map(replace)
-        
-        return (data, encoding)
-        
-    except Exception as e:
-        if isinstance(e, KeyError):
-            raise KeyError(e)
-        else:
-            raise e
-
-@step(enable_cache=False)
-def decode(data: pd.DataFrame, encoding: dict) -> Annotated[pd.DataFrame, "test_encoded"]:
-    """
-    Decode test data using encoding generated from train data
-
-    Parameters:
-        data(pd.DataFrame): test data
-        encoding(dict): encoding dictionary from train data
-    
-    Returns:
-        data(pd.DataFrame): encoded data 
-    """
     columns = ['merchant','street', 'category','city', 'job', 'zip', 'gender']
-    # Create the mapping function 
-    def replace(key):
-        try:
-            return encoding[key]
-        except Exception as e:
-            # if some new key comes then by default 0.1% chance of fraud 
-            return 0.1
+    encoding = dict()
+    # Create encoding dictionary
     for feature in columns:
-        data[feature] = data[feature].map(replace)
-    return data
+        fraud_counts = data[data['is_fraud']==1][feature].value_counts()
+        fradulent_cat = list(fraud_counts.index)
+        transaction_counts = data[data[feature].isin(fradulent_cat)][feature].value_counts()
+        fraud_percent = (fraud_counts/transaction_counts)*100
+        median = fraud_percent.median() # median will be used for unknown category
+        encoding.update(fraud_percent.to_dict())
+        encoding[f"{feature}_median"] = median
+    
+    for feature in columns:
+        data[feature] = data[feature].map(lambda key: encoding[key] if key in encoding.keys() 
+                                          else encoding[f"{feature}_median"])
+    logging.log_pipelines(step="Preprocessing", message="feature encoding generation successful")
+    
+    return (data, encoding)
+        
+@step(enable_cache=False)
+def encode(data: pd.DataFrame, encoding: dict) -> Annotated[pd.DataFrame, "test_encoded"]:
+    return utils.encode(data, encoding)
 
 @step(enable_cache=False)
 def save_encoder(encoding: dict)-> Annotated[bool, "encoder_saved"]:
@@ -163,9 +94,12 @@ def save_encoder(encoding: dict)-> Annotated[bool, "encoder_saved"]:
         with open(Paths.encoder(), "wb") as file:
             pickle.dump(encoding, file)
             file.close()
+        logging.log_pipelines(step="Preprocessing", message="encoder saved successfully")
         return True
     except OSError as e:
-        raise OSError(f"Error in saving encoding: {e}")
+        error = f"Error in saving encoding: {e}"
+        logging.log_error(step="Preprocessing", error=error)
+        raise OSError(error)
 
 @step(enable_cache=False)
 def standardize_train(data: pd.DataFrame) -> Tuple[Annotated[pd.DataFrame,"train_standardized"], 
@@ -189,6 +123,7 @@ def standardize_train(data: pd.DataFrame) -> Tuple[Annotated[pd.DataFrame,"train
     X_processed = scaler.fit_transform(X)
     data_processed = pd.DataFrame(data=X_processed, columns=X_columns)
     data_processed['is_fraud'] = y.values
+    logging.log_pipelines(step="Preprocessing", message="train data standardization done successfully")
 
     return (data_processed, scaler)
 
@@ -211,6 +146,8 @@ def standardize_test(data: pd.DataFrame, scaler: StandardScaler) -> Annotated[pd
     X_processed = scaler.transform(X)
     data_processed = pd.DataFrame(data=X_processed, columns=X_columns)
     data_processed['is_fraud'] = y.values
+    logging.log_pipelines(step="Preprocessing", message="test data standardized successfully")
+
     return data_processed
 
 @step(enable_cache=False)
@@ -219,38 +156,46 @@ def save_standardscaler(scaler: StandardScaler) -> Annotated[bool,"standardscale
         with open(Paths.standardscaler(), "wb") as file:
             pickle.dump(scaler, file)
             file.close()
+        logging.log_pipelines(step="Preprocessing", message="standard scaler saved successfully")
+        
         return True
     except OSError as e:
-        raise OSError(f"Error in saving standardscaler: {e}")
+        error = f"Error in saving standardscaler: {e}"
+        logging.log_error(step="Preprocessing", error=error)
+        raise OSError(error)
 
 @step(enable_cache=False)
 def save_train_test(train: pd.DataFrame, test: pd.DataFrame) -> Annotated[bool, "preprocessed_data_saved"]:
     try:
         train.to_csv(Paths.preprocessed_train())
         test.to_csv(Paths.preprocessed_test())
+        logging.log_pipelines(step="Preprocessing", message="pre-processed data saved successfully")
+
         return True
     except OSError as e:
-        raise OSError(f"Error saving preprocessed data: {e}")
+        error = f"Error saving preprocessed data: {e}"
+        logging.log_error(step="Preprocessing", error=error)
+        raise OSError(error)
 
 @pipeline
 def pipeline_preprocessing():
     '''
-    Pipeline for ML Models
+    Pipeline for preprocessing data
     '''
     try:
         data = load_ingested_data()
-        data = drop_columns(data)
         data = process_datetime(data)
+        data = drop_columns(data)
         train, test = split(data)
-        train, encoding = encode(train)
-        test = decode(test, encoding)
+        train, encoding = generate_encoding(train)
+        test = encode(test, encoding)
         save_encoder(encoding)
         train, scaler = standardize_train(train)
         test = standardize_test(test, scaler)
         save_standardscaler(scaler)
         save_train_test(train, test)
     except Exception as e:
-        print(f"Error in preprocessing pipeline: {e}")
+        print(e)
 
 
 if __name__ == "__main__":
