@@ -4,3 +4,11 @@
 2024-12-19 19:28:48  step=Consumer  KafkaError{code=_TRANSPORT,val=-195,str="Failed to get metadata: Local: Broker transport failure"} 
 2024-12-19 19:31:18  step=Consumer  Error 111 connecting to localhost:6379. Connection refused. 
 2024-12-19 19:32:23  step=Consumer  <class 'redis.exceptions.ConnectionError'>: Error 111 connecting to localhost:6379. Connection refused. 
+2024-12-20 13:49:32  step=Consumer  <class 'cimpl.KafkaException'>: KafkaError{code=_TRANSPORT,val=-195,str="Failed to get metadata: Local: Broker transport failure"} 
+2024-12-20 13:54:45  step=Consumer  <class 'cimpl.KafkaException'>: KafkaError{code=_TRANSPORT,val=-195,str="Failed to get metadata: Local: Broker transport failure"} 
+2024-12-20 20:08:34  step=Consumer  <class 'cimpl.KafkaException'>: KafkaError{code=_TRANSPORT,val=-195,str="Failed to get metadata: Local: Broker transport failure"} 
+2024-12-20 20:29:54  step=Consumer  <class 'cimpl.KafkaException'>: KafkaError{code=_TRANSPORT,val=-195,str="Failed to get metadata: Local: Broker transport failure"} 
+2024-12-20 21:32:14  step=Consumer  <class 'cimpl.KafkaException'>: KafkaError{code=_TRANSPORT,val=-195,str="Failed to get metadata: Local: Broker transport failure"} 
+2024-12-20 21:44:58  step=Consumer  <class 'cimpl.KafkaException'>: KafkaError{code=_TRANSPORT,val=-195,str="Failed to get metadata: Local: Broker transport failure"} 
+2024-12-20 21:45:31  step=Consumer  <class 'cimpl.KafkaException'>: KafkaError{code=_TRANSPORT,val=-195,str="Failed to get metadata: Local: Broker transport failure"} 
+2024-12-21 01:37:49  step=Consumer  <class 'cimpl.KafkaException'>: KafkaError{code=_TRANSPORT,val=-195,str="Failed to get metadata: Local: Broker transport failure"} 

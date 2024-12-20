@@ -1,14 +1,18 @@
 from flask import Flask, render_template, Response
 from flask_socketio import SocketIO, emit
 import redis
+import time
+import sys
 from log import logging
 from paths.setup_path import Paths
+from redis.exceptions import (
+   ConnectionError
+)
 
 # Flask and Redis setup
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")  
-redis_client = redis.StrictRedis("localhost", port=6379, decode_responses=True)
-pubsub = redis_client.pubsub()
+
 
 @socketio.on('connect')
 def handle_connect():
@@ -36,17 +40,34 @@ def show_logs(type: str):
         f.close()
     return Response(content, mimetype='text/plain')
 
-def listen_to_redis():
+def listen_to_redis(pubsub):
     pubsub.subscribe("prediction")
     for message in pubsub.listen():
         if message['type'] == "message":
             socketio.emit("prediction", {"data" : message['data']})
 
 if __name__ == '__main__':
-    try:    
-        socketio.start_background_task(listen_to_redis)
-        socketio.run(app, debug=False, port=5000, host="0.0.0.0")
-    except Exception as e:
-        logging.log_error(step="FlaskApp", error=f"{type(e)} : {e}")
+    retries = 0
+    while retries < 10:
+        try:
+            redis_client = redis.StrictRedis("localhost", port=6379, decode_responses=True)
+            pubsub = redis_client.pubsub()  
+            if not redis_client.ping():
+                print("Redis ping error, retrying after 3 seconds")
+                retries += 1
+                time.sleep(3)
+            else:
+                print("Redis connected successfully")
+                break
+        except ConnectionError as e:
+            retries += 1
+            print("Redis connection error, retrying after 3 seconds")
+            time.sleep(3)      
+    if retries >= 10:
+        logging.log_error(step="Redis", error="App cannot be started as redis service is unavailable")
+        print("App cannot be started as redis service is unavailable")
+        sys.exit()
+    socketio.start_background_task(listen_to_redis, pubsub)
+    socketio.run(app, debug=False, port=5000, host="0.0.0.0", allow_unsafe_werkzeug=True)
     
     

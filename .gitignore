@@ -9,4 +9,6 @@ database/write.py
 *.csv
 *.pkl
 app.py
-streams/
+Dockerfile
+.dockerignore
+*.yml
