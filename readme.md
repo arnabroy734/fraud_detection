@@ -60,9 +60,7 @@ The system has two major sub-systems working in isolation - **Training and Infer
 
    - The transaction data of genuine and fradulent transactions is simulated from a python script to test the latency of the system. Here is a small demonstration of the run on local machine. **(Kafka and Redis are running as docker containers. Prediction service and web service are running separately. Transaction data is being simulated from producer.py to test the system)**.
 
-   <video width=90% height=60% controls>
-      <source src="demo.mp4" type="video/mp4">
-   </video>
+   [![Watch on YouTube](https://img.youtube.com/vi/kaxQTsNH_10/0.jpg)](https://youtu.be/kaxQTsNH_10)
 
 
 ## Technologies Used
