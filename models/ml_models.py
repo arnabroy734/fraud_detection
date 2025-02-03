@@ -21,7 +21,6 @@ class FraudClassifierRF(FraudClassifier):
         """Tune hyperparameter and find the best model"""
         params = {
             'n_estimators' : [100, 150],
-            'max_depth' : [None, 3, 5],
         }
         clf = GridSearchCV(
                 estimator = RandomForestClassifier(n_jobs=-1),
